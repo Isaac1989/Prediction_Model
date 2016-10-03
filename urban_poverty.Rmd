@@ -1,0 +1,61 @@
+---
+title: "Vacancy prediction"
+author: "Isaac Oduro"
+date: "July 29, 2016"
+output: html_document
+---
+```{r}
+library(tidyr)
+library(dplyr)
+```
+#### Removing a couple of variables
+```{r}
+tci<- read.csv('Z:/largetransfer/luc/carter/data/model_data/tci_final.csv',header = T)
+
+to_drop<- c('occup','cqual_num','sa_days','LATITUDE','LONGITUDE')
+
+tci1<- tci[,!(names(tci) %in% to_drop)]
+
+#tci2<- tci %>% select(-c(occup,cqual_num,sa_days,LATITUDE,LONGITUDE))
+rm(tci)
+```
+#### Adding a couple of variables
+
+```{r}
+mprop<- read.csv('Z:/largetransfer/luc/carter/data/clean_data/main_prop.csv', header=T)
+
+# gprop<- tbl_df(mprop) %>% group_by(parcel) %>% top_n(1,taxyr) %>% subset(taxyr== 2014)
+# 
+# gprop<- gprop[!duplicated(gprop),]
+
+mpropf<- read.csv('Z:/largetransfer/luc/carter/data/clean_data/main_prop_filtered.csv',header=T)
+
+tci2<-  right_join(tci1,mpropf[,c('parcel','pclass','nluc')],by='parcel')
+
+# rm(gmprop,gprop,mpropf)
+
+demo<- read.csv('Z:/largetransfer/luc/carter/data/clean_data/demographic.csv')
+
+demo1<- demo %>%subset(parcel %in% tci2$parcel) %>%select(parcel,NAME10)
+
+tci3<- merge(tci2,demo1,by.x='parcel',by.y='parcel')
+tci3<- tci3 %>% select(-c(condition_value13,condition_value14))
+
+write.csv(tci3,'Z:/largetransfer/luc/carter/data/model_data/tci_final(2016729).csv')
+
+```
+
+#### Building logistic model
+```{r}
+data_tci<- read.csv('Z:/largetransfer/luc/carter/data/model_data/tci_final(2016729).csv',header=T)
+```
+```{r}
+  attach(data_tci)
+  data_tci$nluc<- as.factor(data_tci$nluc)
+  data_tci$NAME10<- as.factor(data_tci$NAME10)
+  data_tci<- data_tci[!is.na(data_tci$nluc),]
+  n=nrow(data_tci)
+  train<- sample(n,0.8*n,replace=F)
+  test<- seq(n)[-train]
+  log.fit<- glm(vacant~.,data=data_tci[train,],family=binomial)
+```
